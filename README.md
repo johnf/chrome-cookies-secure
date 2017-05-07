@@ -61,6 +61,7 @@ chrome.getCookies('http://www.example.com/', 'jar')
 On OS X, this module requires Keychain Access to read the Google Chrome encryption key. The first time you use it, it will popup this dialog:
 
 ![image](https://raw.githubusercontent.com/johnf/chrome-cookies-secure-promise/gh-pages/access.png)
+=======
 
 The SQLite database that Google Chrome stores its cookies is only persisted to every 30 seconds or so, so this can explain while you'll see a delay between which cookies your browser has access to and this module.
 

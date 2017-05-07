@@ -5,39 +5,33 @@
  * See the accompanying LICENSE file for terms.
  */
 
-import sqlite3 from 'sqlite3';
+import db from 'sqlite'; // eslint-disable-line import/extensions
 import tld from 'tldjs';
 import tough from 'tough-cookie';
 import request from 'request';
-import int from 'int';
 import url from 'url';
 import crypto from 'crypto';
 import keytar from 'keytar';
 
-let path;
-let ITERATIONS;
-let dbClosed = false;
+const config = {
+  keyLength: 16,
+};
 
 if (process.platform === 'darwin') {
-  path = `${process.env.HOME}/Library/Application Support/Google/Chrome/Default/Cookies`;
-  ITERATIONS = 1003;
+  config.path = `${process.env.HOME}/Library/Application Support/Google/Chrome/Default/Cookies`;
+  config.iterations = 1003;
 } else if (process.platform === 'linux') {
-  path = `${process.env.HOME}/.config/google-chrome/Default/Cookies`;
-  ITERATIONS = 1;
+  config.path = `${process.env.HOME}/.config/google-chrome/Default/Cookies`;
+  config.iterations = 1;
 } else {
-  console.error('Only Mac and Linux are supported.');
-  process.exit();
+  throw new Error('Only OS X and Linux are supported.');
 }
-
-const KEYLENGTH = 16;
-const SALT = 'saltysalt';
-let db = new sqlite3.Database(path);
 
 // Decryption based on http://n8henrie.com/2014/05/decrypt-chrome-cookies-with-python/
 // Inspired by https://www.npmjs.org/package/chrome-cookies
 const decrypt = (key, encryptedDataOrig) => {
   let decoded;
-  const iv = new Buffer(new Array(KEYLENGTH + 1).join(' '), 'binary');
+  const iv = new Buffer(new Array(config.keyLength + 1).join(' '), 'binary');
 
   const decipher = crypto.createDecipheriv('aes-128-cbc', key, iv);
   decipher.setAutoPadding(false);
@@ -47,7 +41,8 @@ const decrypt = (key, encryptedDataOrig) => {
   decoded = decipher.update(encryptedData);
 
   const final = decipher.final();
-  final.copy(decoded, decoded.length - 1);
+
+  decoded = Buffer.concat([decoded, final]);
 
   const padding = decoded[decoded.length - 1];
   if (padding) {
@@ -59,23 +54,42 @@ const decrypt = (key, encryptedDataOrig) => {
   return decoded;
 };
 
-const getDerivedKey = (callback) => {
-  let chromePassword;
+const getOSXSecret = () => keytar.getPassword('Chrome Safe Storage', 'Chrome');
+
+const getLinuxSecret = () => new Promise((resolve /* , reject*/) => {
+  resolve('peanuts');
+});
+
+const getDerivedKey = () => {
+  let secretFunction;
 
   if (process.platform === 'darwin') {
-    chromePassword = keytar.getPassword('Chrome Safe Storage', 'Chrome');
+    secretFunction = getOSXSecret;
   } else if (process.platform === 'linux') {
-    chromePassword = 'peanuts';
+    secretFunction = getLinuxSecret;
   }
 
-  crypto.pbkdf2(chromePassword, SALT, ITERATIONS, KEYLENGTH, callback);
+  return secretFunction()
+    .then((chromePassword) => {
+      const salt = 'saltysalt';
+      const digest = 'SHA1';
+
+      return new Promise((resolve, reject) => {
+        crypto.pbkdf2(chromePassword, salt, config.iterations, config.keyLength, digest, (err, derivedKey) => {
+          if (err) {
+            reject(err);
+          }
+
+          resolve(derivedKey);
+        });
+      });
+    });
 };
 
 // Chromium stores its timestamps in sqlite on the Mac using the Windows Gregorian epoch
 // https://github.com/adobe/chromium/blob/master/base/time_mac.cc#L29
 // This converts it to a UNIX timestamp
-
-const convertChromiumTimestampToUnix = timestamp => int(timestamp.toString()).sub('11644473600000000').div(1000000);
+const convertChromiumTimestampToUnix = timestamp => (timestamp - 11644473600000000) / 1000000;
 
 const convertRawToNetscapeCookieFileFormat = (cookies, domain) => {
   let out = '';
@@ -121,7 +135,7 @@ const convertRawToHeader = (cookies) => {
 const convertRawToJar = (cookies, uri) => {
   const jar = new request.jar(); // eslint-disable-line new-cap
 
-  cookies.forEach((cookie /* , index */) => {
+  cookies.forEach((cookie) => {
     const jarCookie = request.cookie(`${cookie.name}=${cookie.value}`);
     if (jarCookie) {
       jar.setCookie(jarCookie, uri);
@@ -134,7 +148,7 @@ const convertRawToJar = (cookies, uri) => {
 const convertRawToSetCookieStrings = (cookies) => {
   const strings = [];
 
-  cookies.forEach((cookie /* , index */) => {
+  cookies.forEach((cookie) => {
     let out = '';
 
     const dateExpires = new Date(convertChromiumTimestampToUnix(cookie.expires_utc) * 1000);
@@ -161,163 +175,123 @@ const convertRawToSetCookieStrings = (cookies) => {
 const convertRawToObject = (cookies) => {
   const out = {};
 
-  cookies.forEach((cookie /* , index */) => {
+  cookies.forEach((cookie) => {
     out[cookie.name] = cookie.value;
   });
 
   return out;
 };
 
+const getDBRows = (domain) => {
+  // ORDER BY tries to match sort order specified in
+  // RFC 6265 - Section 5.4, step 2
+  // http://tools.ietf.org/html/rfc6265#section-5.4
+  const sql = `
+    SELECT
+      host_key, path, secure, expires_utc, name, value, encrypted_value, creation_utc, httponly, has_expires, persistent
+    FROM
+      cookies
+    WHERE
+      host_key like '%${domain}'
+    ORDER BY
+      LENGTH(path) DESC,
+      creation_utc ASC
+  `;
+
+  return db.open(config.path)
+    .then(() => db.all(sql))
+    .then((rows) => {
+      db.close();
+      return rows;
+    });
+};
+
 /*
-
-   Possible formats:
-   curl - Netscape HTTP Cookie File contents usable by curl and wget http://curl.haxx.se/docs/http-cookies.html
-   jar - request module compatible jar https://github.com/request/request#requestjar
-   set-cookie - Array of set-cookie strings
-   header - "cookie" header string
-   object - key/value of name/value pairs, overlapping names are overwritten
-
+  Possible formats:
+    curl - Netscape HTTP Cookie File contents usable by curl and wget http://curl.haxx.se/docs/http-cookies.html
+    jar - request module compatible jar https://github.com/request/request#requestjar
+    set-cookie - Array of set-cookie strings
+    header - "cookie" header string
+    object - key/value of name/value pairs, overlapping names are overwritten
 */
-const getCookies = (uri, format, callback) => {
-  if (format instanceof Function) {
-    callback = format; // eslint-disable-line no-param-reassign
-    format = null; // eslint-disable-line no-param-reassign
-  }
-
+export const getCookies = async (uri, format) => {
   const parsedUrl = url.parse(uri);
 
   if (!parsedUrl.protocol || !parsedUrl.hostname) {
-    return callback(new Error('Could not parse URI, format should be http://www.example.com/path/'));
+    throw new Error('Could not parse URI, format should be http://www.example.com/path/');
   }
 
-  if (dbClosed) {
-    db = new sqlite3.Database(path);
-    dbClosed = false;
+  const domain = tld.getDomain(uri);
+  if (!domain) {
+    throw new Error('Could not parse domain from URI, format should be http://www.example.com/path/');
   }
 
-  getDerivedKey((err, derivedKey) => {
-    if (err) {
-      return callback(err);
+  const derivedKey = await getDerivedKey();
+  const rows = await getDBRows(domain);
+
+  const host = parsedUrl.hostname;
+  const innerPath = parsedUrl.path;
+  const isSecure = parsedUrl.protocol.match('https');
+
+  const allCookies = [];
+  rows.forEach((cookie) => {
+    if (cookie.value !== '' || cookie.encrypted_value.length === 0) {
+      return;
     }
 
-    db.serialize(() => {
-      const cookies = [];
+    cookie.value = decrypt(derivedKey, cookie.encrypted_value); // eslint-disable-line no-param-reassign
 
-      const domain = tld.getDomain(uri);
+    if (cookie.secure && !isSecure) {
+      return;
+    }
 
-      if (!domain) {
-        return callback(new Error('Could not parse domain from URI, format should be http://www.example.com/path/'));
-      }
+    if (!tough.domainMatch(host, cookie.host_key, true)) {
+      return;
+    }
 
-      // ORDER BY tries to match sort order specified in
-      // RFC 6265 - Section 5.4, step 2
-      // http://tools.ietf.org/html/rfc6265#section-5.4
-      const sql = `
-        SELECT
-          host_key, path, secure, expires_utc, name, value, encrypted_value, creation_utc, httponly, has_expires, persistent
-        FROM
-          cookies
-        WHERE
-          host_key like '%${domain}'
-        ORDER BY
-          LENGTH(path) DESC,
-          creation_utc ASC
-      `;
-      db.each(sql, (dbErr, cookie) => {
-        let encryptedValue;
+    if (!tough.pathMatch(innerPath, cookie.path)) {
+      return;
+    }
 
-        if (dbErr) {
-          return callback(dbErr);
-        }
-
-        if (cookie.value === '') {
-          encryptedValue = cookie.encrypted_value;
-          cookie.value = decrypt(derivedKey, encryptedValue); // eslint-disable-line no-param-reassign
-          delete cookie.encrypted_value; // eslint-disable-line no-param-reassign
-        }
-
-        cookies.push(cookie);
-
-        return null;
-      }, () => {
-        const host = parsedUrl.hostname;
-        const innerPath = parsedUrl.path;
-        const isSecure = parsedUrl.protocol.match('https');
-        let validCookies = [];
-        let output;
-
-        cookies.forEach((cookie) => {
-          if (cookie.secure && !isSecure) {
-            return;
-          }
-
-          if (!tough.domainMatch(host, cookie.host_key, true)) {
-            return;
-          }
-
-          if (!tough.pathMatch(innerPath, cookie.path)) {
-            return;
-          }
-
-          validCookies.push(cookie);
-        });
-
-        const filteredCookies = [];
-        const keys = {};
-
-        validCookies.reverse().forEach((cookie) => {
-          if (typeof keys[cookie.name] === 'undefined') {
-            filteredCookies.push(cookie);
-            keys[cookie.name] = true;
-          }
-        });
-
-        validCookies = filteredCookies.reverse();
-
-        switch (format) {
-
-          case 'curl':
-            output = convertRawToNetscapeCookieFileFormat(validCookies, domain);
-            break;
-
-          case 'jar':
-            output = convertRawToJar(validCookies, uri);
-            break;
-
-          case 'set-cookie':
-            output = convertRawToSetCookieStrings(validCookies);
-            break;
-
-          case 'header':
-            output = convertRawToHeader(validCookies);
-            break;
-
-          case 'object':
-            /* falls through */
-          default:
-            output = convertRawToObject(validCookies);
-            break;
-
-        }
-
-        db.close((db2Err) => {
-          if (!db2Err) {
-            dbClosed = true;
-          }
-
-          return callback(null, output);
-        });
-      });
-
-      return null;
-    });
-
-    return null;
+    allCookies.push(cookie);
   });
 
-  return null;
+  // Keep only most specific cookies
+  const filteredCookies = [];
+  const keys = {};
+
+  allCookies.reverse().forEach((cookie) => {
+    if (typeof keys[cookie.name] === 'undefined') {
+      filteredCookies.push(cookie);
+      keys[cookie.name] = true;
+    }
+  });
+
+  const validCookies = filteredCookies.reverse();
+
+  let output;
+
+  switch (format) {
+    case 'curl':
+      output = convertRawToNetscapeCookieFileFormat(validCookies, domain);
+      break;
+    case 'jar':
+      output = convertRawToJar(validCookies, uri);
+      break;
+    case 'set-cookie':
+      output = convertRawToSetCookieStrings(validCookies);
+      break;
+    case 'header':
+      output = convertRawToHeader(validCookies);
+      break;
+    case 'object':
+      /* falls through */
+    default:
+      output = convertRawToObject(validCookies);
+      break;
+  }
+
+  return output;
 };
 
-module.exports = {
-  getCookies,
-};
+export default { getCookies };

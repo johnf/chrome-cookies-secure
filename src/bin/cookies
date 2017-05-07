@@ -1,0 +1,10 @@
+#!/usr/bin/env node
+
+import * as chrome from '..';
+
+const url = process.argv[2];
+console.error(url);
+
+chrome.getCookies(url, 'set-cookie')
+  .then(cookies => console.error(cookies[10]))
+  .catch(err => console.error(err));
