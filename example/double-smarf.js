@@ -1,14 +1,12 @@
-var chrome = require('../index');
+const chrome = require('../index');
 
-chrome.getCookies('http://smarf.toomanycooks.kitchen', function (err, cookies) {
-	chrome.getCookies('http://smarf.toomanycooks.kitchen', function (err, cookies) {
+chrome.getCookies('http://smarf.toomanycooks.kitchen', (/* err, cookies */) => {
+  chrome.getCookies('http://smarf.toomanycooks.kitchen', (err, cookies) => {
+    if (err) {
+      console.error(err);
+      return;
+    }
 
-		if (err) {
-			console.error(err);
-			return;
-		}
-
-		console.log(cookies);
-
-	});
+    console.log(cookies); // eslint-disable-line no-console
+  });
 });
