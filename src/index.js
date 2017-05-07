@@ -12,6 +12,7 @@ import request from 'request';
 import url from 'url';
 import crypto from 'crypto';
 import keytar from 'keytar';
+import { spawn } from 'child_process';
 
 const config = {
   keyLength: 16,
@@ -56,8 +57,24 @@ const decrypt = (key, encryptedDataOrig) => {
 
 const getOSXSecret = () => keytar.getPassword('Chrome Safe Storage', 'Chrome');
 
-const getLinuxSecret = () => new Promise((resolve /* , reject*/) => {
-  resolve('peanuts');
+const getLinuxSecret = () => new Promise((resolve /* , reject */) => {
+  const secret = spawn('secret-tool', ['lookup', 'application', 'chrome']);
+
+  secret.stdout.on('data', data => resolve(data));
+
+  secret.on('close', (code) => {
+    if (code !== 0) {
+      resolve('peanuts');
+    }
+  });
+
+  secret.on('error', (err) => {
+    if (err.code === 'ENOENT') {
+      throw new Error('You must install secret-tool');
+    }
+
+    throw err;
+  });
 });
 
 const getDerivedKey = () => {
