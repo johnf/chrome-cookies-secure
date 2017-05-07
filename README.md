@@ -1,16 +1,19 @@
-# chrome-cookies-secure
+# chrome-cookies-secure-promise
 
 Extract encrypted Google Chrome cookies for a url on Mac OS X or Linux
+
+This is a fork of https://github.com/bertrandom/chrome-cookies-secure which is
+promise based.
 
 ## Installation
 
 ```
-npm install chrome-cookies-secure
+yarn add chrome-cookies-secure-promise
 ```
 
 ## API
 
-getCookies(url[,format],callback)
+getCookies(url[,format])
 ---------------------------------
 
 `url` should be a fully qualified url, e.g. `http://www.example.com/path/`
@@ -35,32 +38,29 @@ basic usage
 -----------
 
 ```
-var chrome = require('chrome-cookies-secure');
-chrome.getCookies('http://www.example.com/path/', function(err, cookies) {
-	console.log(cookies);
-});
+import chrome from 'chrome-cookies-secure';
+
+chrome.getCookies('http://www.example.com/path/')
+  .then(cookies => console.log(cookies));
 ```
 
 jar used with request
 ---------------------
 
 ```
-var request = require('request');
-var chrome = require('chrome-cookies-secure');
+import request from 'request';
+import chrome from 'chrome-cookies-secure';
 
-chrome.getCookies('http://www.example.com/', 'jar', function(err, jar) {
-	request({url: 'http://www.example.com/', jar: jar}, function (err, response, body) {
-		console.log(body);
-	});
-});
-
+chrome.getCookies('http://www.example.com/', 'jar')
+  .then(jar => request({url: 'http://www.example.com/', jar: jar}))
+  .then(body => console.log(body));
 ```
 
 ## Limitations
 
 On OS X, this module requires Keychain Access to read the Google Chrome encryption key. The first time you use it, it will popup this dialog:
 
-![image](https://raw.githubusercontent.com/bertrandom/chrome-cookies-secure/gh-pages/access.png)
+![image](https://raw.githubusercontent.com/johnf/chrome-cookies-secure-promise/gh-pages/access.png)
 
 The SQLite database that Google Chrome stores its cookies is only persisted to every 30 seconds or so, so this can explain while you'll see a delay between which cookies your browser has access to and this module.
 
@@ -68,4 +68,4 @@ The SQLite database that Google Chrome stores its cookies is only persisted to e
 
 This software is free to use under the MIT license. See the [LICENSE file][] for license text and copyright information.
 
-[LICENSE file]: https://github.com/bertrandom/chrome-cookies-secure/blob/master/LICENSE.md
+[LICENSE file]: https://github.com/johnf/chrome-cookies-secure-promise/blob/master/LICENSE.md

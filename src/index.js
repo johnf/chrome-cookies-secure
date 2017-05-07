@@ -5,15 +5,14 @@
  * See the accompanying LICENSE file for terms.
  */
 
-const sqlite3 = require('sqlite3');
-const tld = require('tldjs');
-const tough = require('tough-cookie');
-const request = require('request');
-const int = require('int');
-const url = require('url');
-const crypto = require('crypto');
-const keytar = require('keytar');
-// const Cookie = tough.Cookie;
+import sqlite3 from 'sqlite3';
+import tld from 'tldjs';
+import tough from 'tough-cookie';
+import request from 'request';
+import int from 'int';
+import url from 'url';
+import crypto from 'crypto';
+import keytar from 'keytar';
 
 let path;
 let ITERATIONS;

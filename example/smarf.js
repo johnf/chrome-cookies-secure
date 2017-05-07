@@ -1,4 +1,4 @@
-const chrome = require('../index');
+const chrome = require('../src/index');
 
 chrome.getCookies('http://smarf.toomanycooks.kitchen', (err, cookies) => {
   if (err) {
