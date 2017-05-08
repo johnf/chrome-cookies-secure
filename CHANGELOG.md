@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.0.6 (2017-05-08)
+
+* fix dist file name (@johnf)
+
 ## 0.0.5 (2017-05-08)
 
 * Something wrong with yarn publish (@johnf)
