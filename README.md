@@ -65,6 +65,27 @@ On OS X, this module requires Keychain Access to read the Google Chrome encrypti
 
 The SQLite database that Google Chrome stores its cookies is only persisted to every 30 seconds or so, so this can explain while you'll see a delay between which cookies your browser has access to and this module.
 
+## Development
+
+After checking out the repo, run `yarn test` to run the tests.
+
+To release a new version:
+
+* yarn test
+* yarn version
+* yarn publish
+
+This will run the tests, update the version, create a git tag for the version,
+push git commits and tags. Publish the module file to
+[npmjs.com](https://npmjs.com).
+
+## Contributing
+
+Bug reports and pull requests are welcome on GitHub at
+https://github.com/johnf/chromecast-discover-node. This project is intended to
+be a safe, welcoming space for collaboration, and contributors are expected to
+adhere to the [Contributor Covenant](contributor-covenant.org) code of conduct.
+
 ## License
 
 This software is free to use under the MIT license. See the [LICENSE file][] for license text and copyright information.
