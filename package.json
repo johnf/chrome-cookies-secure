@@ -52,5 +52,5 @@
     "version": "vi CHANGELOG.md && git add CHANGELOG.md",
     "watch": "webpack --progress --colors --watch"
   },
-  "version": "0.0.2"
+  "version": "0.0.3"
 }
