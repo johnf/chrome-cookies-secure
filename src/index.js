@@ -31,7 +31,6 @@ if (process.platform === 'darwin') {
 // Decryption based on http://n8henrie.com/2014/05/decrypt-chrome-cookies-with-python/
 // Inspired by https://www.npmjs.org/package/chrome-cookies
 const decrypt = (key, encryptedDataOrig) => {
-  let decoded;
   const iv = new Buffer(new Array(config.keyLength + 1).join(' '), 'binary');
 
   const decipher = crypto.createDecipheriv('aes-128-cbc', key, iv);
@@ -39,11 +38,10 @@ const decrypt = (key, encryptedDataOrig) => {
 
   const encryptedData = encryptedDataOrig.slice(3);
 
-  decoded = decipher.update(encryptedData);
+  const first = decipher.update(encryptedData);
+  const last = decipher.final();
 
-  const final = decipher.final();
-
-  decoded = Buffer.concat([decoded, final]);
+  let decoded = Buffer.concat([first, last]);
 
   const padding = decoded[decoded.length - 1];
   if (padding) {
