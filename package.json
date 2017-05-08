@@ -33,7 +33,7 @@
     "extract"
   ],
   "license": "MIT",
-  "main": "index.js",
+  "main": "dist/index.js",
   "name": "chrome-cookies-secure",
   "os": [
     "darwin",
