@@ -38,7 +38,7 @@ basic usage
 -----------
 
 ```
-import chrome from 'chrome-cookies-secure';
+import * as chrome from 'chrome-cookies-secure-promise';
 
 chrome.getCookies('http://www.example.com/path/')
   .then(cookies => console.log(cookies));
@@ -49,7 +49,7 @@ jar used with request
 
 ```
 import request from 'request';
-import chrome from 'chrome-cookies-secure';
+import * as chrome from 'chrome-cookies-secure-promise';
 
 chrome.getCookies('http://www.example.com/', 'jar')
   .then(jar => request({url: 'http://www.example.com/', jar: jar}))

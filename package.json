@@ -34,7 +34,7 @@
   ],
   "license": "MIT",
   "main": "dist/index.js",
-  "name": "chrome-cookies-secure",
+  "name": "chrome-cookies-secure-promise",
   "os": [
     "darwin",
     "linux"
