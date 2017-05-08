@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.0.4 (2017-05-08)
+
+* Update deps (@johnf)
+
 ## 0.0.3 (2017-05-08)
 
 * Fix packaging bug (@johnf)
