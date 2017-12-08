@@ -9,7 +9,7 @@ module.exports = {
     path: path.join(__dirname, 'dist'),
     library: 'cookies-secure-promise',
     libraryTarget: 'umd',
-    filename: '[name].js',
+    filename: 'index.js',
   },
   externals: [nodeExternals()],
   module: {
