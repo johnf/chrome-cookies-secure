@@ -1,5 +1,7 @@
 # chrome-cookies-secure-promise
 
+# I am no longer working on this project, if you would like to take it over please let me know.
+
 Extract encrypted Google Chrome cookies for a url on Mac OS X or Linux
 
 This is a fork of https://github.com/bertrandom/chrome-cookies-secure which is
