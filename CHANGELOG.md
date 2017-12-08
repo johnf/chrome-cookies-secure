@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.0.7 (2017-12-09)
+
+* Add abandonment message (@johnf)
+
 ## 0.0.6 (2017-05-08)
 
 * fix dist file name (@johnf)
